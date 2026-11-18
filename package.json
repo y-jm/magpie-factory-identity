@@ -1,0 +1,25 @@
+{
+  "name": "magpie-middleware-factory-identity",
+  "version": "0.1.0",
+  "description": "Rewrite OMP's default identity sentence only in system instructions sent to Factory.",
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "factory-identity.middleware.mjs",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": ["magpie", "magpie-plugin", "magpie-middleware", "factory", "oh-my-pi"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HarryWang29/magpie-factory-identity.git"
+  },
+  "magpie": {
+    "middleware": "./factory-identity.middleware.mjs",
+    "name": "Factory Identity",
+    "summary": {
+      "en": "Rewrite OMP's identity sentence in Factory system instructions while preserving the rest of the prompt.",
+      "zh": "仅替换 Factory 系统指令中的 OMP 身份声明，保留其他提示词。"
+    }
+  }
+}
