@@ -1,9 +1,12 @@
 {
   "name": "magpie-middleware-factory-identity",
-  "version": "0.1.0",
-  "description": "Rewrite OMP's default identity sentence only in system instructions sent to Factory.",
+  "version": "0.2.1",
+  "description": "Rewrite OMP identity instructions and round-trip twelve tool aliases for Factory.",
   "type": "module",
   "license": "MIT",
+  "scripts": {
+    "test": "node --test factory-identity.middleware.test.mjs"
+  },
   "files": [
     "factory-identity.middleware.mjs",
     "README.md",
@@ -18,8 +21,8 @@
     "middleware": "./factory-identity.middleware.mjs",
     "name": "Factory Identity",
     "summary": {
-      "en": "Rewrite OMP's identity sentence in Factory system instructions while preserving the rest of the prompt.",
-      "zh": "仅替换 Factory 系统指令中的 OMP 身份声明，保留其他提示词。"
+      "en": "Rewrite OMP's identity sentence and map twelve tool names to Factory aliases, restoring them in replies.",
+      "zh": "保留系统身份句替换，将含 web_search 的 12 个 OMP 工具名映射给 Factory，并在响应中还原。"
     }
   }
 }
