@@ -10,11 +10,13 @@ const TOOL_ALIASES = new Map([
   ["ScheduleWakeup", "omp_schedule_wakeup"],
   ["ReportFindings", "omp_report_findings"],
   ["DesignSync", "omp_design_sync"],
-  ["advisor", "omp_advisor"],
+  // 2026-11-26 实测：名字命中率会随 Factory 策略变化，AskUserQuestion 是新命中的一项。
+  // advisor 不能改名——它是 type=advisor_20260301 的特殊工具，上游要求 name 必须为 "advisor"。
+  ["AskUserQuestion", "omp_ask_user_question"],
 ]);
 
-// 这几个工具连"描述/schema 文本本身"都会被 Factory 拒（改名无效），只能从请求里摘掉。
-const DROPPED_TOOLS = new Set(["EnterWorktree", "ExitWorktree", "NotebookEdit"]);
+// 2026-11-26 复测：EnterWorktree / ExitWorktree / NotebookEdit 已不再被拦，摘除机制保留备用。
+const DROPPED_TOOLS = new Set();
 
 // provider 直接是 factory，或经 remote-magpie 网关转发到 factory 时都要处理。
 const FACTORY_PROVIDER = /^(?:factory|remote-magpie(?:-\d+)?)$/;

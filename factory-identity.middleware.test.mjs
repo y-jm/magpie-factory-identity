@@ -448,41 +448,60 @@ test("providers that never route to factory are untouched", () => {
   assert.deepEqual(apply(onProvider, body, ctx), body);
 });
 
-test("Claude Code tools whose text itself is refused are dropped from the request", () => {
+test("AskUserQuestion is aliased while the worktree and notebook tools pass through", () => {
   const ctx = context("anthropic", "remote-magpie");
-  const body = request("anthropic", ["Bash", "EnterWorktree", "ExitWorktree", "NotebookEdit", "ScheduleWakeup"]);
+  const names = ["Bash", "EnterWorktree", "ExitWorktree", "NotebookEdit", "AskUserQuestion", "ScheduleWakeup"];
+  const body = request("anthropic", names);
   const out = apply(onProvider, body, ctx);
-  assert.deepEqual(out.tools.map((tool) => tool.name), ["Bash", "omp_schedule_wakeup"]);
-  assert.equal(body.tools.length, 5);
+  assert.deepEqual(out.tools.map((tool) => tool.name), [
+    "Bash", "EnterWorktree", "ExitWorktree", "NotebookEdit", "omp_ask_user_question", "omp_schedule_wakeup",
+  ]);
+  assert.equal(body.tools.length, names.length);
 });
 
-test("tool_addition blocks for dropped tools are removed and kept ones renamed", () => {
+test("tool_addition blocks are renamed for aliased tools and left alone otherwise", () => {
   const ctx = context("anthropic", "remote-magpie");
   const body = {
     model: "factory/model",
     system: [
       { type: "text", text: "hello" },
       { type: "tool_addition", tool: { type: "tool_reference", name: "EnterWorktree" } },
+      { type: "tool_addition", tool: { type: "tool_reference", name: "AskUserQuestion" } },
       { type: "tool_addition", tool: { type: "tool_reference", name: "advisor" } },
     ],
     messages: [{ role: "user", content: "hi" }],
   };
   const out = apply(onProvider, body, ctx);
-  assert.equal(out.system.length, 2);
-  assert.equal(out.system[1].type, "tool_addition");
-  assert.equal(out.system[1].tool.name, "omp_advisor");
+  assert.equal(out.system.length, 4);
+  assert.equal(out.system[1].tool.name, "EnterWorktree");
+  assert.equal(out.system[2].tool.name, "omp_ask_user_question");
+  assert.equal(out.system[3].tool.name, "advisor");
 });
 
-test("tool_choice naming a dropped tool is removed", () => {
+test("tool_choice follows the same renaming and keeps advisor intact", () => {
   const ctx = context("anthropic", "remote-magpie");
-  const body = { model: "factory/model", tools: request("anthropic", ["NotebookEdit"]).tools, messages: [{ role: "user", content: "hi" }], tool_choice: { type: "tool", name: "NotebookEdit" } };
+  const body = {
+    model: "factory/model",
+    tools: request("anthropic", ["AskUserQuestion"]).tools,
+    messages: [{ role: "user", content: "hi" }],
+    tool_choice: { type: "tool", name: "AskUserQuestion" },
+  };
   const out = apply(onProvider, body, ctx);
-  assert.equal(out.tool_choice, undefined);
-  assert.deepEqual(out.tools, []);
+  assert.equal(out.tool_choice.name, "omp_ask_user_question");
+  assert.deepEqual(out.tools.map((tool) => tool.name), ["omp_ask_user_question"]);
 });
 
-test("DesignSync and advisor are aliased too", () => {
+test("DesignSync is aliased but advisor keeps its upstream-mandated name", () => {
   const ctx = context("anthropic", "remote-magpie");
-  const out = apply(onProvider, request("anthropic", ["DesignSync", "advisor"]), ctx);
-  assert.deepEqual(out.tools.map((tool) => tool.name), ["omp_design_sync", "omp_advisor"]);
+  const body = {
+    model: "factory/model",
+    tools: [
+      { name: "DesignSync", description: "sync", input_schema: { type: "object", properties: {} } },
+      { type: "advisor_20260301", name: "advisor", model: "remote-magpie/factory/claude-opus-5-5", defer_loading: true },
+    ],
+    messages: [{ role: "user", content: "hi" }],
+  };
+  const out = apply(onProvider, body, ctx);
+  assert.deepEqual(out.tools.map((tool) => tool.name), ["omp_design_sync", "advisor"]);
+  assert.equal(out.tools[1].type, "advisor_20260301");
 });
