@@ -9,7 +9,12 @@ const TOOL_ALIASES = new Map([
   // Claude Code 的内置工具：名字本身会命中 Factory 的策略过滤，改名后放行
   ["ScheduleWakeup", "omp_schedule_wakeup"],
   ["ReportFindings", "omp_report_findings"],
+  ["DesignSync", "omp_design_sync"],
+  ["advisor", "omp_advisor"],
 ]);
+
+// 这几个工具连"描述/schema 文本本身"都会被 Factory 拒（改名无效），只能从请求里摘掉。
+const DROPPED_TOOLS = new Set(["EnterWorktree", "ExitWorktree", "NotebookEdit"]);
 
 // provider 直接是 factory，或经 remote-magpie 网关转发到 factory 时都要处理。
 const FACTORY_PROVIDER = /^(?:factory|remote-magpie(?:-\d+)?)$/;
@@ -27,9 +32,25 @@ export function onProvider(body, ctx) {
   switch (ctx.protocol) {
     case "anthropic":
       result = mapField(result, "system", replaceContent);
-      result = mapField(result, "tools", (tools) => mapList(tools, (tool) => mapName(tool, rename)));
-      result = mapField(result, "tool_choice", (choice) =>
-        choice?.type === "tool" ? mapName(choice, rename) : choice);
+      result = mapField(result, "system", (content) => {
+        if (!Array.isArray(content)) return content;
+        const kept = content.filter((block) =>
+          !(block?.type === "tool_addition" && DROPPED_TOOLS.has(block?.tool?.name)));
+        return mapList(kept, (block) =>
+          block?.type === "tool_addition"
+            ? mapField(block, "tool", (tool) => mapName(tool, rename))
+            : block);
+      });
+      result = mapField(result, "tools", (tools) => {
+        const list = Array.isArray(tools) && tools.some((tool) => DROPPED_TOOLS.has(tool?.name))
+          ? tools.filter((tool) => !DROPPED_TOOLS.has(tool?.name))
+          : tools;
+        return mapList(list, (tool) => mapName(tool, rename));
+      });
+      result = mapField(result, "tool_choice", (choice) => {
+        if (choice?.type !== "tool") return choice;
+        return DROPPED_TOOLS.has(choice?.name) ? undefined : mapName(choice, rename);
+      });
       result = mapField(result, "messages", (messages) => mapList(messages, (message) =>
         mapField(message, "content", (content) => mapAnthropicContent(content, rename))));
       break;

@@ -447,3 +447,42 @@ test("providers that never route to factory are untouched", () => {
   const body = request("anthropic", ["ScheduleWakeup"]);
   assert.deepEqual(apply(onProvider, body, ctx), body);
 });
+
+test("Claude Code tools whose text itself is refused are dropped from the request", () => {
+  const ctx = context("anthropic", "remote-magpie");
+  const body = request("anthropic", ["Bash", "EnterWorktree", "ExitWorktree", "NotebookEdit", "ScheduleWakeup"]);
+  const out = apply(onProvider, body, ctx);
+  assert.deepEqual(out.tools.map((tool) => tool.name), ["Bash", "omp_schedule_wakeup"]);
+  assert.equal(body.tools.length, 5);
+});
+
+test("tool_addition blocks for dropped tools are removed and kept ones renamed", () => {
+  const ctx = context("anthropic", "remote-magpie");
+  const body = {
+    model: "factory/model",
+    system: [
+      { type: "text", text: "hello" },
+      { type: "tool_addition", tool: { type: "tool_reference", name: "EnterWorktree" } },
+      { type: "tool_addition", tool: { type: "tool_reference", name: "advisor" } },
+    ],
+    messages: [{ role: "user", content: "hi" }],
+  };
+  const out = apply(onProvider, body, ctx);
+  assert.equal(out.system.length, 2);
+  assert.equal(out.system[1].type, "tool_addition");
+  assert.equal(out.system[1].tool.name, "omp_advisor");
+});
+
+test("tool_choice naming a dropped tool is removed", () => {
+  const ctx = context("anthropic", "remote-magpie");
+  const body = { model: "factory/model", tools: request("anthropic", ["NotebookEdit"]).tools, messages: [{ role: "user", content: "hi" }], tool_choice: { type: "tool", name: "NotebookEdit" } };
+  const out = apply(onProvider, body, ctx);
+  assert.equal(out.tool_choice, undefined);
+  assert.deepEqual(out.tools, []);
+});
+
+test("DesignSync and advisor are aliased too", () => {
+  const ctx = context("anthropic", "remote-magpie");
+  const out = apply(onProvider, request("anthropic", ["DesignSync", "advisor"]), ctx);
+  assert.deepEqual(out.tools.map((tool) => tool.name), ["omp_design_sync", "omp_advisor"]);
+});

@@ -2,7 +2,7 @@
 
 A Magpie gateway middleware that rewrites OMP's identity sentence and maps twelve OMP tool names for the `factory` provider, restoring the original names in JSON and streamed replies.
 
-0.3.0（本 fork）增加 Claude Code 的 `ScheduleWakeup`/`ReportFindings` 映射并放宽 provider 判定；0.1.0 仅替换身份句，已有实际请求仍被 Factory 拒绝。0.2.0 增加工具名双向映射，0.2.1 补充抓包中的自定义工具 `web_search`；本地协议转换测试不代表 Factory 会接受完整 OMP 会话。
+0.3.1（本 fork）增加 Claude Code 工具映射（4 个改名、3 个摘除）、处理 `tool_addition` 并放宽 provider 判定；0.1.0 仅替换身份句，已有实际请求仍被 Factory 拒绝。0.2.0 增加工具名双向映射，0.2.1 补充抓包中的自定义工具 `web_search`；本地协议转换测试不代表 Factory 会接受完整 OMP 会话。
 
 这个中间件在 Magpie 选定 Factory 上游后，将 OMP 默认的开头身份声明替换为：
 
@@ -65,12 +65,28 @@ magpie plugin add github:HarryWang29/magpie-factory-identity
 
 ### 追加：Claude Code 内置工具
 
-本 fork 额外映射两个 Claude Code 内置工具，它们**只要出现在 `tools` 里就会**触发 Factory 的 `400 content_policy_rejected`（与描述、system、对话内容都无关，已实测）：
+实测 Claude Code 2.1.332 的内置工具会在两种层面触发 Factory 的 `400 content_policy_rejected`，因此分两类处理。
+
+**只改名字即可放行**（名字本身命中过滤，与描述无关）：
 
 | 客户端原名 | 发给 Factory 的名称 |
 | --- | --- |
 | `ScheduleWakeup` | `omp_schedule_wakeup` |
 | `ReportFindings` | `omp_report_findings` |
+| `DesignSync` | `omp_design_sync` |
+| `advisor` | `omp_advisor` |
+
+`advisor` 还会出现在 `system` 的 `tool_addition` / `tool_reference` 块里，已一并改名，否则该块仍会命中。
+
+**连描述与 schema 文本都会被拒，改名无效，只能从请求里摘掉**：
+
+| 被摘掉的工具 |
+| --- |
+| `EnterWorktree` |
+| `ExitWorktree` |
+| `NotebookEdit` |
+
+摘除后这三个工具对模型不可见（调用会失败），换来整轮请求可用。若某天 Factory 放宽，删除 `DROPPED_TOOLS` 里的对应项即可。
 
 同时把 provider 判定从「仅 `factory`」放宽为 `factory` 与 `remote-magpie` / `remote-magpie-2`。原因是客户端常经 Magpie 的 remote-magpie 网关再转发到 Factory，此时中间件运行在前一跳，`ctx.provider.id` 是 `remote-magpie` 而不是 `factory`，原先的严格判定会让中间件直接跳过、什么都不改。
 
