@@ -1,7 +1,7 @@
 {
   "name": "magpie-middleware-factory-identity",
-  "version": "0.2.1",
-  "description": "Rewrite OMP identity instructions and round-trip twelve tool aliases for Factory.",
+  "version": "0.3.0",
+  "description": "Rewrite OMP identity instructions and round-trip tool aliases for Factory, including Claude Code built-ins.",
   "type": "module",
   "license": "MIT",
   "scripts": {
@@ -12,7 +12,13 @@
     "README.md",
     "LICENSE"
   ],
-  "keywords": ["magpie", "magpie-plugin", "magpie-middleware", "factory", "oh-my-pi"],
+  "keywords": [
+    "magpie",
+    "magpie-plugin",
+    "magpie-middleware",
+    "factory",
+    "oh-my-pi"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/HarryWang29/magpie-factory-identity.git"

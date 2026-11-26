@@ -413,3 +413,37 @@ test("web_search alias conflicts cannot retain a previous request mapping", () =
     assert.strictEqual(apply(onResponse, reply, ctx), reply);
   }
 });
+
+test("Claude Code tools are aliased for factory and remote-magpie providers", () => {
+  for (const provider of ["factory", "remote-magpie", "remote-magpie-2"]) {
+    const ctx = context("anthropic", provider);
+    const body = request("anthropic", ["ScheduleWakeup", "ReportFindings"]);
+    const out = apply(onProvider, body, ctx);
+    assert.deepEqual(out.tools.map((tool) => tool.name), ["omp_schedule_wakeup", "omp_report_findings"]);
+    assert.deepEqual(body.tools.map((tool) => tool.name), ["ScheduleWakeup", "ReportFindings"]);
+  }
+});
+
+test("Claude Code tool alias is restored in a non-streamed response", () => {
+  const ctx = context("anthropic", "remote-magpie");
+  apply(onProvider, request("anthropic", ["ScheduleWakeup"]), ctx);
+  const reply = { content: [{ type: "tool_use", id: "toolu_1", name: "omp_schedule_wakeup", input: { delaySeconds: 270 } }] };
+  const out = apply(onResponse, reply, ctx);
+  assert.equal(out.content[0].name, "ScheduleWakeup");
+  assert.equal(out.content[0].id, "toolu_1");
+  assert.deepEqual(out.content[0].input, { delaySeconds: 270 });
+});
+
+test("Claude Code tool alias is restored in a streamed event", () => {
+  const ctx = context("anthropic", "remote-magpie");
+  apply(onProvider, request("anthropic", ["ReportFindings"]), ctx);
+  const event = { type: "content_block_start", index: 0, content_block: { type: "tool_use", id: "toolu_2", name: "omp_report_findings", input: {} } };
+  const out = apply(onEvent, event, ctx);
+  assert.equal(out.content_block.name, "ReportFindings");
+});
+
+test("providers that never route to factory are untouched", () => {
+  const ctx = context("anthropic", "zhipu");
+  const body = request("anthropic", ["ScheduleWakeup"]);
+  assert.deepEqual(apply(onProvider, body, ctx), body);
+});

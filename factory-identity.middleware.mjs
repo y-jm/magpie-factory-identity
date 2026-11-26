@@ -6,12 +6,19 @@ const TOOL_ALIASES = new Map([
   ["_grep", "omp_grep"], ["_task", "omp_task"], ["_wait", "omp_wait"],
   ["_todo", "omp_todo"], ["_write", "omp_write"],
   ["web_search", "omp_web_search"],
+  // Claude Code 的内置工具：名字本身会命中 Factory 的策略过滤，改名后放行
+  ["ScheduleWakeup", "omp_schedule_wakeup"],
+  ["ReportFindings", "omp_report_findings"],
 ]);
+
+// provider 直接是 factory，或经 remote-magpie 网关转发到 factory 时都要处理。
+const FACTORY_PROVIDER = /^(?:factory|remote-magpie(?:-\d+)?)$/;
+const onFactory = (ctx) => FACTORY_PROVIDER.test(String(ctx.provider?.id ?? ""));
 
 export function onProvider(body, ctx) {
   // 每次上游尝试都从入口请求开始，不能沿用上一次的映射或流状态。
   ctx.state.factoryIdentity = undefined;
-  if (ctx.provider?.id !== "factory") return;
+  if (!onFactory(ctx)) return;
 
   const state = { reverse: new Map(), originalNames: new Set(), streams: new Map() };
   const rename = (name) => renameRequestTool(name, state);
@@ -62,7 +69,7 @@ export function onProvider(body, ctx) {
 
 export function onResponse(body, ctx) {
   const state = ctx.state.factoryIdentity;
-  if (ctx.provider?.id !== "factory" || !state) return;
+  if (!onFactory(ctx) || !state) return;
   const restore = (name) => state.reverse.get(name) ?? name;
   let result = body;
 
@@ -87,7 +94,7 @@ export function onResponse(body, ctx) {
 
 export function onEvent(event, ctx) {
   const state = ctx.state.factoryIdentity;
-  if (ctx.provider?.id !== "factory" || !state) return;
+  if (!onFactory(ctx) || !state) return;
   const restore = (name) => state.reverse.get(name) ?? name;
   let result = event;
 
