@@ -1,6 +1,6 @@
 {
   "name": "magpie-middleware-factory-identity",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Rewrite OMP identity instructions and round-trip tool aliases for Factory, including Claude Code built-ins.",
   "type": "module",
   "license": "MIT",
